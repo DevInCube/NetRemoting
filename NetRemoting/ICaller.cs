@@ -1,5 +1,4 @@
 using NetRemoting.Communication;
-using System;
 using System.Runtime.CompilerServices;
 
 namespace NetRemoting;

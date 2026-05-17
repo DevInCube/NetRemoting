@@ -1,5 +1,3 @@
-using System;
-
 namespace NetRemoting.Communication;
 
 public static class MessageExtensions

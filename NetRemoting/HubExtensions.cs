@@ -1,5 +1,3 @@
-using System;
-
 namespace NetRemoting;
 
 public static class HubExtensions

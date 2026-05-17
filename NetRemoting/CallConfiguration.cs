@@ -1,5 +1,3 @@
-using System;
-
 namespace NetRemoting;
 
 internal class CallConfiguration : ICallConfiguration

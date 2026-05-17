@@ -1,5 +1,3 @@
-using System;
-
 namespace NetRemoting.Test.Interfaces;
 
 public interface IService

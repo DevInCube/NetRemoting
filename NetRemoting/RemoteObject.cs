@@ -1,5 +1,4 @@
 using Castle.DynamicProxy;
-using System;
 
 namespace NetRemoting;
 

@@ -1,5 +1,3 @@
-using System;
-
 namespace NetRemoting;
 
 public interface ICallConfiguration

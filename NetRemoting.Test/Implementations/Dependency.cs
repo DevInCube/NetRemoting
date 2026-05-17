@@ -1,5 +1,4 @@
 using NetRemoting.Test.Interfaces;
-using System;
 
 namespace NetRemoting.Test.Implementations;
 
