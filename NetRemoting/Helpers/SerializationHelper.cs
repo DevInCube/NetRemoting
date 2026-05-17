@@ -1,3 +1,4 @@
+using NetRemoting.Exceptions;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 
@@ -256,7 +257,7 @@ public static class SerializationHelper
         switch (parts[0])
         {
             case nameof(ResultValueType.Void): return ResultValue.Void;
-            case nameof(ResultValueType.Exception): return ResultValue.CreateException(new Exception(part1));
+            case nameof(ResultValueType.Exception): return ResultValue.CreateException(new NetRemotingException(part1));
             case nameof(ResultValueType.Result): return ResultValue.CreateResult(JsonConvert.DeserializeObject<Object>(part1));
             default: throw new NotSupportedException(parts[0]);
         }

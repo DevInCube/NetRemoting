@@ -1,5 +1,6 @@
 using Castle.DynamicProxy;
 using NetRemoting.Communication;
+using NetRemoting.Exceptions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
@@ -58,7 +59,7 @@ public class Hub
         var handler = (IRemoteObjectImplementation)sender;
         if (!_handlerCallers.TryGetValue(handler, out var caller))
         {
-            throw new Exception($"Caller not found for handler: `{handler.GetType()}`.");
+            throw new NetRemotingException($"Caller not found for handler: `{handler.GetType()}`.");
         }
 
         var eventCall = new EventCall(new Signature
@@ -77,7 +78,7 @@ public class Hub
         var caller = (ICaller)sender;
         if (!_handlers.TryGetValue(caller.Instance, out var handler))
         {
-            throw new Exception($"Handler not found for caller: `{caller.Instance}`.");
+            throw new NetRemotingException($"Handler not found for caller: `{caller.Instance}`.");
         }
 
         var processor = GetSenders().Single(x => x.ClientId == request.ClientId);
@@ -259,7 +260,7 @@ public class Hub
         // TODO
         //if (!_callers.TryRemove(instance, out _))
         //{
-        //    throw new Exception($"Could not remove caller instance: `{instance}`");
+        //    throw new NetRemotingException($"Could not remove caller instance: `{instance}`");
         //}
 
         //WriteLine($"Removed caller instance: {instance}");
@@ -277,7 +278,7 @@ public class Hub
         var result = _dataSender(dataBytes);
         if (!result)
         {
-            throw new Exception($"Data not send: `{data}`");
+            throw new NetRemotingException($"Data not send: `{data}`");
         }
     }
 
@@ -343,7 +344,7 @@ public class Hub
             return parentCaller;
         }
 
-        throw new Exception($"Caller for instance was not found: `{instance}`");
+        throw new NetRemotingException($"Caller for instance was not found: `{instance}`");
     }
 
     public IEnumerable<Hub> GetSenders()

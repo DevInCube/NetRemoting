@@ -4,6 +4,7 @@ using NetRemoting.Communication;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using NetRemoting.Exceptions;
 
 namespace NetRemoting;
 
@@ -177,7 +178,7 @@ internal class Caller : ICaller
             var responseMessage = WaitForResponse(m => sender.SendMessage(m), message);
             if (!responseMessage.Header.MessageType.Equals(MessageType.EventResponse))
             {
-                throw new Exception($"Invalid event response: {responseMessage}.");
+                throw new NetRemotingException($"Invalid event response: {responseMessage}.");
             }
         }
     }
@@ -388,7 +389,7 @@ internal class Caller : ICaller
         var popped = waiterStack.Pop();
         if (waiter != popped)
         {
-            throw new Exception("Invalid state");
+            throw new NetRemotingException("Invalid state");
         }
 
         if (waiterStack.Count == 0)
