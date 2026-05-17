@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NetRemoting.Test/NetRemoting.Test.csproj" />
+  <Project Path="NetRemoting/NetRemoting.csproj" />
+</Solution>
