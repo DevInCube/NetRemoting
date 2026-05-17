@@ -42,7 +42,7 @@ public static class SerializationHelper
     }
 
     private static string s_pattern = @"\),\(";
-    private static Regex s_argumentsSplitRegex = new Regex(s_pattern);
+    private static Regex s_argumentsSplitRegex = new(s_pattern);
 
     private static Object[] ParseArguments(string part)
     {

@@ -7,11 +7,11 @@ namespace NetRemoting;
 
 internal class ThreadWaiter
 {
-    private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
-    private readonly ConcurrentDictionary<Guid, Message> _responses = new ConcurrentDictionary<Guid, Message>();
+    private readonly ConcurrentQueue<Request> _requests = new();
+    private readonly ConcurrentDictionary<Guid, Message> _responses = new();
 
-    private readonly AutoResetEvent _gotRequestEvent = new AutoResetEvent(false);
-    private readonly AutoResetEvent _gotResponseEvent = new AutoResetEvent(false);
+    private readonly AutoResetEvent _gotRequestEvent = new(false);
+    private readonly AutoResetEvent _gotResponseEvent = new(false);
 
     public event EventHandler<Request> Request;
 

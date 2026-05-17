@@ -6,7 +6,7 @@ namespace NetRemoting;
 internal class RemoteObjectProxyInterceptor : IInterceptor
 {
     private readonly ICaller _caller;
-    private readonly EventListeners _eventListeners = new EventListeners();
+    private readonly EventListeners _eventListeners = new();
 
     public RemoteObjectProxyInterceptor(ICaller caller)
     {

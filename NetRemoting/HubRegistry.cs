@@ -2,8 +2,8 @@ namespace NetRemoting;
 
 public class HubRegistry
 {
-    private readonly Dictionary<Type, Func<ICaller, object>> _clientFactories = new Dictionary<Type, Func<ICaller, object>>();
-    private readonly Dictionary<Type, Func<object, IRemoteObjectImplementation>> _serverFactories = new Dictionary<Type, Func<object, IRemoteObjectImplementation>>();
+    private readonly Dictionary<Type, Func<ICaller, object>> _clientFactories = [];
+    private readonly Dictionary<Type, Func<object, IRemoteObjectImplementation>> _serverFactories = [];
 
     public void RegisterFactory<T>(Func<ICaller, T> clientFactory)
     {

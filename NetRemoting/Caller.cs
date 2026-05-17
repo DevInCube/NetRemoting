@@ -11,10 +11,10 @@ internal class Caller : ICaller
 {
     private readonly Hub _hub;
 
-    private readonly ConcurrentDictionary<int, Stack<ThreadWaiter>> _threadWaiters = new ConcurrentDictionary<int, Stack<ThreadWaiter>>();
+    private readonly ConcurrentDictionary<int, Stack<ThreadWaiter>> _threadWaiters = new();
 
-    private readonly List<Message> _sentMessages = new List<Message>();
-    private readonly List<Message> _receivedMessages = new List<Message>();
+    private readonly List<Message> _sentMessages = [];
+    private readonly List<Message> _receivedMessages = [];
 
     public Instance Instance { get; }
 

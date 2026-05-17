@@ -9,15 +9,15 @@ namespace NetRemoting;
 public class Hub
 {
     private readonly Hub _parentHub;
-    private readonly List<Hub> _childrenHubs = new List<Hub>();
+    private readonly List<Hub> _childrenHubs = [];
 
     private readonly Func<byte[], bool> _dataSender;
-    private readonly HubRegistry _registry = new HubRegistry();
+    private readonly HubRegistry _registry = new();
 
-    private readonly ConcurrentDictionary<Instance, IRemoteObjectImplementation> _handlers = new ConcurrentDictionary<Instance, IRemoteObjectImplementation>();
-    private readonly ConcurrentDictionary<Instance, ICaller> _callers = new ConcurrentDictionary<Instance, ICaller>();
-    private readonly ConcurrentDictionary<Instance, object> _remotes = new ConcurrentDictionary<Instance, object>();
-    private readonly ConcurrentDictionary<IRemoteObjectImplementation, ICaller> _handlerCallers = new ConcurrentDictionary<IRemoteObjectImplementation, ICaller>();
+    private readonly ConcurrentDictionary<Instance, IRemoteObjectImplementation> _handlers = new();
+    private readonly ConcurrentDictionary<Instance, ICaller> _callers = new();
+    private readonly ConcurrentDictionary<Instance, object> _remotes = new();
+    private readonly ConcurrentDictionary<IRemoteObjectImplementation, ICaller> _handlerCallers = new();
 
     public Guid ClientId { get; }
 
@@ -351,5 +351,5 @@ public class Hub
         return new[] { this }.Concat(_childrenHubs);
     }
 
-    public static Hub CreateMainHub() => new Hub(null, Guid.Empty, x => true);
+    public static Hub CreateMainHub() => new(null, Guid.Empty, x => true);
 }

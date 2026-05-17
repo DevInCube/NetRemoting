@@ -4,19 +4,19 @@ namespace NetRemoting;
 
 public class EventListeners
 {
-    private readonly ConcurrentDictionary<string, List<Delegate>> _listeners = new ConcurrentDictionary<string, List<Delegate>>();
+    private readonly ConcurrentDictionary<string, List<Delegate>> _listeners = new();
 
     public void Add(string eventName, Delegate @delegate)
     {
         _listeners
-            .GetOrAdd(eventName, x => new List<Delegate>())
+            .GetOrAdd(eventName, x => [])
             .Add(@delegate);
     }
 
     public void Remove(string eventName, Delegate @delegate)
     {
         _ = _listeners
-            .GetOrAdd(eventName, x => new List<Delegate>())
+            .GetOrAdd(eventName, x => [])
             .Remove(@delegate);
     }
 

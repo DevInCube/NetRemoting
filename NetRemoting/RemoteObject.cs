@@ -4,7 +4,7 @@ namespace NetRemoting;
 
 public static class RemoteObject
 {
-    private readonly static ProxyGenerator s_proxyGenerator = new ProxyGenerator();
+    private readonly static ProxyGenerator s_proxyGenerator = new();
 
     public static T For<T>(ICaller caller)
     {
