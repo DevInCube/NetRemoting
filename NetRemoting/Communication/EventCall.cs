@@ -9,21 +9,12 @@ public class EventCall : MethodCall
 
     public static EventCall Create(Instance instance, string eventName, Object[] args)
     {
-        return new EventCall(new Signature
+        Signature signature = new()
         {
             ServiceName = instance.ServiceName,
             InstanceId = instance.InstanceId,
             MethodName = eventName,
-        },
-            args);
-    }
-
-    public static EventCall Create(string eventName, Object[] args)
-    {
-        return new EventCall(new Signature
-        {
-            MethodName = eventName,
-        },
-            args);
+        };
+        return new EventCall(signature, args);
     }
 }

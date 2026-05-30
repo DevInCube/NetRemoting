@@ -9,13 +9,19 @@ public static class MessageExtensions
             throw new InvalidOperationException($"Can return only for `{nameof(MessageType.MethodCall)}` got `{message.Header.MessageType}`.");
         }
 
-        var call = (MethodCall)message.Payload;
-        return new Message(message.Header.CreateResponseHeader(), new MethodCallResult
+        if (message.Payload is not MethodCall call)
+        {
+            throw new InvalidDataException("Message payload is not a method call.");
+        }
+
+        MessageHeader header = message.Header.CreateResponseHeader();
+        MethodCallResult callResult = new()
         {
             Signature = call.Signature,
             ResultValue = resultValue,
             OutArguments = outArguments,
-        });
+        };
+        return new Message(header, callResult);
     }
 
     public static Message CreateReturn(this Message message, Object result, Object[] outArguments)
@@ -30,7 +36,7 @@ public static class MessageExtensions
 
     public static Message CreateThrowException(this Message message, Exception exception)
     {
-        return CreateReturn(message, ResultValue.CreateException(exception), new Object[0]);
+        return CreateReturn(message, ResultValue.CreateException(exception), []);
     }
 
     public static Message CreateEventResponse(this Message message)
@@ -40,7 +46,11 @@ public static class MessageExtensions
             throw new InvalidOperationException($"Can return only for `{nameof(MessageType.Event)}` got `{message.Header.MessageType}`.");
         }
 
-        var call = (MethodCall)message.Payload;
+        if (message.Payload is not MethodCall call)
+        {
+            throw new InvalidDataException("Message payload is not a method call.");
+        }
+
         return new Message(message.Header.CreateResponseHeader(), EventResponse.Create(call.Signature));
     }
 

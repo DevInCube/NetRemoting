@@ -13,7 +13,7 @@ internal class ThreadWaiter
     private readonly AutoResetEvent _gotRequestEvent = new(false);
     private readonly AutoResetEvent _gotResponseEvent = new(false);
 
-    public event EventHandler<Request> Request;
+    public event EventHandler<Request>? Request;
 
     public int ThreadId => Message.Header.ThreadId;
 
@@ -34,23 +34,20 @@ internal class ThreadWaiter
             State = WaiterState.Waiting;
 
             // TODO move time to config
-            var eventIndex = WaitHandle.WaitAny(new[] { _gotRequestEvent, _gotResponseEvent }, 1000);
+            var eventIndex = WaitHandle.WaitAny([_gotRequestEvent, _gotResponseEvent], 1000);
             if (eventIndex == 0)
             {
                 State = WaiterState.ProcessingRequest;
-                while (_requests.TryDequeue(out Request newRequest))
+                while (_requests.TryDequeue(out Request? newRequest))
                 {
                     Request?.Invoke(this, newRequest);
                 }
             }
-            else if (eventIndex == 1)
+            else if (eventIndex == 1 && _responses.TryRemove(header.Id, out var matchedResponse))
             {
-                if (_responses.TryRemove(header.Id, out var matchedResponse))
-                {
-                    State = WaiterState.Finished;
-                    WriteLine($"FINISHED!!!!");
-                    return matchedResponse;
-                }
+                State = WaiterState.Finished;
+                WriteLine($"FINISHED!!!!");
+                return matchedResponse;
             }
 
             WriteLine($"!!!!!!!!!! Still waiting for response !!!!!!!!!");
@@ -91,7 +88,7 @@ internal class ThreadWaiter
         _gotResponseEvent.Set();
     }
 
-    private void WriteLine(string line, [CallerMemberName] string methodName = null)
+    private void WriteLine(string line, [CallerMemberName] string? methodName = null)
     {
         var realThreadId = Thread.CurrentThread.ManagedThreadId;
         var className = GetType().Name;

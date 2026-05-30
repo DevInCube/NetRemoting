@@ -4,7 +4,7 @@ namespace NetRemoting;
 
 public class CallInfo
 {
-    public Hub Hub { get; set; }
+    public Hub? Hub { get; set; }
 
     public int ThreadId { get; set; }
 

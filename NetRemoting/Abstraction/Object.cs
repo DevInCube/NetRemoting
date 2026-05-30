@@ -7,16 +7,23 @@ namespace NetRemoting;
 [DebuggerDisplay("{ToString()}")]
 public class Object
 {
-    public Type Type { get; set; }
+    public required Type Type { get; init; }
 
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
-    public object Value { get; set; }
+    public object? Value { get; set; }
 
-    public object GetValue()
+    public object? GetValue()
     {
-        if (Value == null)
+        if (Type == null)
+        {
             return null;
+        }
+
+        if (Value == null)
+        {
+            return null;
+        }
 
         if (Type.IsEnum)
         {
@@ -61,9 +68,9 @@ public class Object
         return Value;
     }
 
-    public T As<T>()
+    public T? As<T>()
     {
-        return (T)Value;
+        return (T?)Value;
     }
 
     // TODO resolve this from data sent over network
@@ -81,12 +88,17 @@ public class Object
     // TODO resolve this from data sent over network
     public int[] AsIntArray()
     {
-        return ((Newtonsoft.Json.Linq.JArray)Value).Select(x => (int)x).ToArray();
+        return ((Newtonsoft.Json.Linq.JArray?)Value)?.Select(x => (int)x).ToArray() ?? [];
     }
 
-    public T AsEnum<T>()
+    public T? AsEnum<T>()
         where T : Enum
     {
+        if (Value is null)
+        {
+            return default;
+        }
+
         if (Value is T t)
         {
             return t;
@@ -106,7 +118,7 @@ public class Object
         return Create(typeof(T), argValue);
     }
 
-    public static Object Create(Type type, object argValue, string name = null)
+    public static Object Create(Type type, object? argValue, string? name = null)
     {
         return new Object
         {

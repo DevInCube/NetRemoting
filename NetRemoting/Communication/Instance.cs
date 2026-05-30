@@ -7,23 +7,18 @@ namespace NetRemoting;
 public class Instance
 {
     public string ServiceName { get; }
+
     public Guid? InstanceId { get; }
-
-    public Instance()
-    {
-
-    }
 
     public Instance(string serviceName, Guid? instanceId = null)
     {
-        if (string.IsNullOrWhiteSpace(serviceName))
-            throw new ArgumentException(nameof(serviceName));
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(serviceName);
 
         ServiceName = serviceName;
         InstanceId = instanceId;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is Instance instance &&
                ServiceName == instance.ServiceName &&
@@ -32,10 +27,7 @@ public class Instance
 
     public override int GetHashCode()
     {
-        int hashCode = 1545604566;
-        hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(ServiceName);
-        hashCode = hashCode * -1521134295 + InstanceId.GetHashCode();
-        return hashCode;
+        return HashCode.Combine(ServiceName, InstanceId);
     }
 
     public override string ToString()

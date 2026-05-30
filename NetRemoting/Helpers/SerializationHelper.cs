@@ -1,13 +1,17 @@
 using NetRemoting.Exceptions;
 using Newtonsoft.Json;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 namespace NetRemoting.Communication;
 
 public static class SerializationHelper
 {
-    private static string Null = "<null>";
-    private static string Sender = "<sender>";
+    private const string Null = "<null>";
+    private const string Sender = "<sender>";
+
+    private static readonly string s_pattern = @"\),\(";
+    private static readonly Regex s_argumentsSplitRegex = new(s_pattern);
 
     public static string FormatInstance(Instance instance)
     {
@@ -30,7 +34,7 @@ public static class SerializationHelper
         return new Instance(serviceName, instanceId);
     }
 
-    public static bool TryParseInstance(string arg, out Instance instance)
+    public static bool TryParseInstance(string arg, [NotNullWhen(true)] out Instance? instance)
     {
         if (arg.Contains('@') && Guid.TryParse(arg.Split('@')[1], out _))
         {
@@ -42,29 +46,33 @@ public static class SerializationHelper
         return false;
     }
 
-    private static string s_pattern = @"\),\(";
-    private static Regex s_argumentsSplitRegex = new(s_pattern);
-
     private static Object[] ParseArguments(string part)
     {
         var arguments = s_argumentsSplitRegex.Split(part.Trim().TrimStart('(').TrimEnd(')'))
             .Where(x => !string.IsNullOrEmpty(x))  // TODO passing empty strings as arguments
             .Select(ParseArgument)
+            .OfType<Object>()
             .ToArray();
         return arguments;
     }
 
-    private static Object ParseArgument(string arg)
+    private static Object? ParseArgument(string arg)
     {
         // TODO empty strings
         if (string.IsNullOrEmpty(arg))
-            throw new ArgumentException(nameof(arg));
+        {
+            throw new ArgumentException("Argument is null or empty.", nameof(arg));
+        }
 
         if (arg == Null)
+        {
             return null;
+        }
 
         if (arg == Sender)
+        {
             return Object.Create(null, arg);
+        }
 
         try
         {
@@ -73,7 +81,7 @@ public static class SerializationHelper
         }
         catch (Exception)
         {
-
+            // Ignore.
         }
 
         throw new NotImplementedException();
@@ -94,21 +102,22 @@ public static class SerializationHelper
     {
         return args?
             .Select(FormatArgument)
-            .ToArray();
+            .ToArray() ?? [];
     }
 
     public static string FormatArgument(Object argument)
     {
-        if (argument == null)
-            throw new ArgumentNullException(nameof(argument));
+        ArgumentNullException.ThrowIfNull(argument);
 
         // Special values.
-        if (argument.Type == null)
+        if (argument.Type is null)
         {
-            if (argument.Value == null)
+            if (argument.Value is null)
+            {
                 return Null;
+            }
 
-            return argument.Value.ToString();
+            return argument.Value.ToString() ?? throw new InvalidDataException("Object value string representation is null.");
         }
 
         return JsonConvert.SerializeObject(argument);
@@ -156,7 +165,9 @@ public static class SerializationHelper
     {
         var callParts = callString.Split('|');
         if (callParts.Length != 3)
+        {
             throw new FormatException($"Invalid call result format: `{callString}`");
+        }
 
         var signature = ParseSignature(callParts[0]);
         var resultValue = ParseResultValue(callParts[1]);
@@ -173,10 +184,14 @@ public static class SerializationHelper
     {
         var callParts = callString.Split('|');
         if (callParts.Length != 2)
+        {
             throw new FormatException($"Invalid event response format: `{callString}`");
+        }
 
         if (!string.IsNullOrEmpty(callParts[1]))
+        {
             throw new FormatException($"Invalid event response format: second part should be empty.");
+        }
 
         var signature = ParseSignature(callParts[0]);
         return new EventResponse
@@ -214,16 +229,24 @@ public static class SerializationHelper
     {
         var parts = header.Split(':');
         if (parts.Length != 3)
+        {
             throw new FormatException($"Invalid message header: `{header}`.");
+        }
 
         if (!Enum.TryParse(parts[0], out MessageType messageType))
+        {
             throw new NotSupportedException($"Message type: `{parts[0]}`.");
+        }
 
         if (!Guid.TryParse(parts[1], out Guid guid))
+        {
             throw new FormatException($"Invalid message header id: `{parts[1]}`.");
+        }
 
         if (!int.TryParse(parts[2], out int number))
+        {
             throw new FormatException($"Invalid message header thread id: `{parts[2]}`.");
+        }
 
         return new MessageHeader
         {
@@ -242,10 +265,14 @@ public static class SerializationHelper
     private static string FormatResultValue(ResultValue resultValue)
     {
         if (resultValue.IsVoid)
+        {
             return nameof(ResultValueType.Void);
+        }
 
         if (resultValue.Exception != null)
+        {
             return $"{nameof(ResultValueType.Exception)}({resultValue.Exception})";
+        }
 
         return $"{nameof(ResultValueType.Result)}({JsonConvert.SerializeObject(resultValue.Result)})";
     }
@@ -254,13 +281,13 @@ public static class SerializationHelper
     {
         var parts = str.Split('(');
         var part1 = parts.Length > 1 ? string.Join("(", parts.Skip(1)).TrimEnd(')') : null;
-        switch (parts[0])
+        return parts[0] switch
         {
-            case nameof(ResultValueType.Void): return ResultValue.Void;
-            case nameof(ResultValueType.Exception): return ResultValue.CreateException(new NetRemotingException(part1));
-            case nameof(ResultValueType.Result): return ResultValue.CreateResult(JsonConvert.DeserializeObject<Object>(part1));
-            default: throw new NotSupportedException(parts[0]);
-        }
+            nameof(ResultValueType.Void) => ResultValue.Void,
+            nameof(ResultValueType.Exception) => ResultValue.CreateException(new NetRemotingException(part1)),
+            nameof(ResultValueType.Result) => ResultValue.CreateResult(JsonConvert.DeserializeObject<Object>(part1) ?? throw new InvalidDataException("JSON value is null.")),
+            _ => throw new NotSupportedException(parts[0]),
+        };
     }
 
     private static Object[] ParseOutArguments(string outArgumentsPart)
@@ -289,7 +316,9 @@ public static class SerializationHelper
     {
         var parts = message.Split('#');
         if (parts.Length != 2)
+        {
             throw new FormatException($"Invalid message: `{message}`.");
+        }
 
         var header = ParseMessageHeader(parts[0]);
         var payload = ParsePayload(header.MessageType, parts[1]);
@@ -301,25 +330,25 @@ public static class SerializationHelper
 
     public static IEnumerable<Message> ParseMessages(string text)
     {
-        return text.Split(';')  // messages separator
+        var messages = text.Split(';')  // messages separator
             .Select(x => x.Trim())
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Where(x => !x.StartsWith("//"))  // comments
-            .Select(ParseMessage)
-            .ToArray();
+            .Select(ParseMessage);
+        return messages;
     }
 
     private static object ParsePayload(MessageType messageType, string payloadString)
     {
-        switch (messageType)
+        return messageType switch
         {
-            case MessageType.MethodCall: return ParseMethodCall(payloadString);
-            case MessageType.MethodCallResult: return ParseCallResult(payloadString);
-            case MessageType.Event: return ParseEventCall(payloadString);
-            case MessageType.EventResponse: return ParseEventResponse(payloadString);
-            default:
-                throw new NotSupportedException(messageType.ToString());
-        }
+            MessageType.MethodCall => (object)ParseMethodCall(payloadString),
+            MessageType.MethodCallResult => (object)ParseCallResult(payloadString),
+            MessageType.Event => (object)ParseEventCall(payloadString),
+            MessageType.EventResponse => (object)ParseEventResponse(payloadString),
+            _ => throw new NotSupportedException(messageType.ToString()),
+        };
+
     }
 
     public static string FormatMessage(Message message)
@@ -329,17 +358,17 @@ public static class SerializationHelper
         return $"{header}#{payloadPart}";
     }
 
-    private static string FormatPayload(MessageType messageType, object payload)
+    private static string FormatPayload(MessageType messageType, object? payload)
     {
-        switch (messageType)
+        return messageType switch
         {
-            case MessageType.MethodCall when payload is MethodCall call: return FormatMethodCall(call);
-            case MessageType.MethodCallResult when payload is MethodCallResult callResult: return FormatMethodCallResult(callResult);
-            case MessageType.Event when payload is EventCall eventCall: return FormatEventCall(eventCall);
-            case MessageType.EventResponse when payload is EventResponse eventResponse: return FormatEventResponse(eventResponse);
-            default:
-                throw new NotSupportedException(messageType.ToString());
-        }
+            MessageType.MethodCall when payload is MethodCall call => FormatMethodCall(call),
+            MessageType.MethodCallResult when payload is MethodCallResult callResult => FormatMethodCallResult(callResult),
+            MessageType.Event when payload is EventCall eventCall => FormatEventCall(eventCall),
+            MessageType.EventResponse when payload is EventResponse eventResponse => FormatEventResponse(eventResponse),
+            _ => throw new NotSupportedException(messageType.ToString()),
+        };
+
     }
 
     private enum ResultValueType

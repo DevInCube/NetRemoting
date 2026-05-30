@@ -6,7 +6,9 @@ namespace NetRemoting.Communication;
 public class MessageHeader
 {
     public MessageType MessageType { get; set; }
+
     public Guid Id { get; set; }
+
     public int ThreadId { get; set; }
 
     public MessageHeader()

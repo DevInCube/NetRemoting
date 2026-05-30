@@ -5,7 +5,7 @@ using System.Net.WebSockets;
 
 namespace NetRemoting.Test.Client;
 
-internal class ClientHub
+internal sealed class ClientHub : IDisposable
 {
     private readonly WatsonWsClient _client;
 
@@ -26,21 +26,26 @@ internal class ClientHub
                 .GetResult();
         });
 
-        void MessageReceived(object sender, MessageReceivedEventArgs args)
+        void MessageReceived(object? sender, MessageReceivedEventArgs args)
         {
-            var messageString = Encoding.UTF8.GetString(args.Data.ToArray());
+            if (Hub is null)
+            {
+                throw new InvalidOperationException("Received message while hub is not initialized.");
+            }
+
+            var messageString = Encoding.UTF8.GetString([.. args.Data]);
             WriteLine($"Message from server: `{messageString}`.");
 
             var message = SerializationHelper.ParseMessage(messageString);
             Hub.ReceiveRequest(new Request(Hub.ClientId, message));
         }
 
-        void ServerConnected(object sender, EventArgs args)
+        void ServerConnected(object? sender, EventArgs args)
         {
             WriteLine($"Server connected.");
         }
 
-        void ServerDisconnected(object sender, EventArgs args)
+        void ServerDisconnected(object? sender, EventArgs args)
         {
             WriteLine($"Server disconnected.");
         }
@@ -64,10 +69,13 @@ internal class ClientHub
         {
             _client.Stop();
         }
-        catch (ObjectDisposedException) { }
+        catch (ObjectDisposedException)
+        {
+            // Ignore.
+        }
     }
 
-    private void WriteLine(string line)
+    private static void WriteLine(string line)
     {
         Console.WriteLine($"{nameof(ClientHub)} >>> {line}");
     }

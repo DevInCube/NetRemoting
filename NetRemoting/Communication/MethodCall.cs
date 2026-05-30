@@ -6,6 +6,7 @@ namespace NetRemoting.Communication;
 public class MethodCall
 {
     public Signature Signature { get; }
+
     public Object[] Arguments { get; }
 
     public MethodCall(Signature signature, Object[] arguments)

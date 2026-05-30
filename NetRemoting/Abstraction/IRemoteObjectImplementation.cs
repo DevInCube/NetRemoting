@@ -6,5 +6,5 @@ public interface IRemoteObjectImplementation
 
     event EventHandler<CallInfo> Event;
 
-    object Call(CallInfo callInfo);
+    object? Call(CallInfo callInfo);
 }

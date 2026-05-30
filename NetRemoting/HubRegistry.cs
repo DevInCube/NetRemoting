@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace NetRemoting;
 
 public class HubRegistry
@@ -6,16 +8,18 @@ public class HubRegistry
     private readonly Dictionary<Type, Func<object, IRemoteObjectImplementation>> _serverFactories = [];
 
     public void RegisterFactory<T>(Func<ICaller, T> clientFactory)
+        where T : class
     {
         _clientFactories.Add(typeof(T), (instance) => clientFactory(instance));
     }
 
     public void RegisterFactory<T>(Func<T, IRemoteObjectImplementation> serverFactory)
+        where T : class
     {
-        _serverFactories.Add(typeof(T), (impl) => serverFactory((T)impl));
+        _serverFactories.Add(typeof(T), (implementation) => serverFactory((T)implementation));
     }
 
-    public bool TryGetClientFactory(Type type, out Func<ICaller, object> clientFactory)
+    public bool TryGetClientFactory(Type type, [NotNullWhen(true)] out Func<ICaller, object>? clientFactory)
     {
         if (_clientFactories.TryGetValue(type, out var factory))
         {
@@ -27,7 +31,7 @@ public class HubRegistry
         return false;
     }
 
-    public bool TryGetServerFactory(Type type, out Func<object, IRemoteObjectImplementation> serverFactory)
+    public bool TryGetServerFactory(Type type, [NotNullWhen(true)] out Func<object, IRemoteObjectImplementation>? serverFactory)
     {
         if (_serverFactories.TryGetValue(type, out var factory))
         {

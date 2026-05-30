@@ -3,13 +3,14 @@ using NetRemoting.Communication;
 using NetRemoting.Exceptions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace NetRemoting;
 
 public class Hub
 {
-    private readonly Hub _parentHub;
+    private readonly Hub? _parentHub;
     private readonly List<Hub> _childrenHubs = [];
 
     private readonly Func<byte[], bool> _dataSender;
@@ -26,7 +27,7 @@ public class Hub
 
     public HubRegistry Registry => _registry;
 
-    public Hub(Hub parentHub, Guid clientId, Func<byte[], bool> sender)
+    public Hub(Hub? parentHub, Guid clientId, Func<byte[], bool> sender)
     {
         _parentHub = parentHub;
         parentHub?._childrenHubs.Add(this);
@@ -40,11 +41,11 @@ public class Hub
         var type = typeof(T);
         var o = CreateRemoteObjectImplementationFor(type, impl);
         var c = CreateCallerFor(new Instance(type.Name));
-        RegisterImpementation(c, o);
+        RegisterImplementation(c, o);
         return o;
     }
 
-    private void RegisterImpementation(ICaller caller, IRemoteObjectImplementation handler)
+    private void RegisterImplementation(ICaller caller, IRemoteObjectImplementation handler)
     {
         caller.CallReceived += Caller_CallReceived;
         handler.Event += Handler_Event;
@@ -54,28 +55,36 @@ public class Hub
         _ = _handlerCallers.TryAdd(handler, caller);  // TODO check
     }
 
-    private void Handler_Event(object sender, CallInfo callInfo)
+    private void Handler_Event(object? sender, CallInfo callInfo)
     {
-        var handler = (IRemoteObjectImplementation)sender;
+        if (sender is not IRemoteObjectImplementation handler)
+        {
+            return;
+        }
+
         if (!_handlerCallers.TryGetValue(handler, out var caller))
         {
             throw new NetRemotingException($"Caller not found for handler: `{handler.GetType()}`.");
         }
 
-        var eventCall = new EventCall(new Signature
+        var signature = new Signature
         {
             ServiceName = caller.Instance.ServiceName,
             InstanceId = caller.Instance.InstanceId,
             MethodName = callInfo.Name,
-        },
-            callInfo.Arguments);
+        };
+        var eventCall = new EventCall(signature, callInfo.Arguments);
 
         caller.RaiseEvent(callInfo.ThreadId, eventCall);
     }
 
-    private void Caller_CallReceived(object sender, Request request)
+    private void Caller_CallReceived(object? sender, Request request)
     {
-        var caller = (ICaller)sender;
+        if (sender is not ICaller caller)
+        {
+            return;
+        }
+
         if (!_handlers.TryGetValue(caller.Instance, out var handler))
         {
             throw new NetRemotingException($"Handler not found for caller: `{caller.Instance}`.");
@@ -86,21 +95,21 @@ public class Hub
         caller.Send(request.ResponseWith(resultMessage));
     }
 
-    internal bool TryGetRemote(Instance instance, out object remote)
+    internal bool TryGetRemote(Instance instance, [NotNullWhen(true)] out object? remote)
     {
         return _remotes.TryGetValue(instance, out remote);
     }
 
-    internal bool TryGetRemoteOrImplementation(Instance instance, out object o)
+    internal bool TryGetRemoteOrImplementation(Instance instance, [NotNullWhen(true)] out object? o)
     {
         if (TryGetRemote(instance, out o))
         {
             return true;
         }
 
-        if (_handlers.TryGetValue(instance, out var impl))
+        if (_handlers.TryGetValue(instance, out var handler))
         {
-            o = impl.Target;
+            o = handler.Target;
             return true;
         }
 
@@ -115,8 +124,12 @@ public class Hub
 
     internal CallInfo CreateMethodCallInfo(Request request)
     {
-        var methodCall = (MethodCall)request.Message.Payload;
-        var arguments = methodCall.Arguments?.ToArray();
+        if (request.Message.Payload is not MethodCall methodCall)
+        {
+            throw new ArgumentException("Request message payload is not a method call.");
+        }
+
+        var arguments = methodCall.Arguments?.ToArray() ?? [];
         var callInfo = new CallInfo(request.Message.Header.ThreadId, methodCall.Signature.MethodName, arguments)
         {
             Hub = this,
@@ -127,14 +140,17 @@ public class Hub
     private Message ProcessMethodCall(IRemoteObjectImplementation handler, Request request)
     {
         var callInfo = CreateMethodCallInfo(request);
+
+        // TODO should this be used?
         var originalArguments = callInfo.Arguments.Select(x => x.Value).ToArray();
 
         try
         {
             var resultObject = handler.Call(callInfo);
+            var resultType = resultObject?.GetType();
             var o = resultObject is Object obj
                 ? obj
-                : Object.Create(resultObject?.GetType(), resultObject);
+                : Object.Create(resultType, resultObject);
             var outArgs = callInfo.Arguments.Where(x => x.Type.IsByRef).ToArray();
             var resultMessage = ProcessMethodCallResult(request, o, outArgs);
             return resultMessage;
@@ -147,10 +163,7 @@ public class Hub
 
     private Message ProcessMethodCallResult(Request request, Object resultObject, Object[] outArguments)
     {
-        if (resultObject is null)
-        {
-            throw new ArgumentNullException(nameof(resultObject));
-        }
+        ArgumentNullException.ThrowIfNull(resultObject);
 
         if (resultObject == Return.Void)
         {
@@ -178,15 +191,16 @@ public class Hub
             {
                 throw new ArgumentException("What interface to take?");
             }
-            else if (interfaces.Length == 1)
+
+            if (interfaces.Length == 1)
             {
                 var @interface = interfaces.First();
                 var server = CreateRemoteObjectImplementationFor(@interface, resultObject.Value);
                 var clientHub = GetSenders().First(x => x.ClientId == request.ClientId);
-                var id = clientHub._callers.Count(x => x.Key.ServiceName == type.Name) == 0 ? Guid.Empty : Guid.NewGuid();
+                var id = !clientHub._callers.Any(x => x.Key.ServiceName == type.Name) ? Guid.Empty : Guid.NewGuid();
                 var caller = clientHub.CreateCallerFor(new Instance(type.Name, id));
 
-                RegisterImpementation(caller, server);
+                RegisterImplementation(caller, server);
 
                 var result = SerializationHelper.FormatInstance(caller.Instance);
                 var newResultObject = Object.Create(@interface, result);
@@ -204,7 +218,8 @@ public class Hub
             return factory(caller);
         }
 
-        if (_parentHub._registry.TryGetClientFactory(type, out var parentFactory))
+        if (_parentHub != null &&
+            _parentHub._registry.TryGetClientFactory(type, out var parentFactory))
         {
             return parentFactory(caller);
         }
@@ -214,38 +229,38 @@ public class Hub
         throw new InvalidOperationException($"Client factory for `{type}` and `{caller}` not registered.");
     }
 
-    public IRemoteObjectImplementation CreateRemoteObjectImplementationFor(Type type, object impl)
+    public IRemoteObjectImplementation CreateRemoteObjectImplementationFor(Type type, object implementation)
     {
         if (_registry.TryGetServerFactory(type, out var factory))
         {
-            return factory(impl);
+            return factory(implementation);
         }
 
         if (_parentHub != null &&
             _parentHub._registry.TryGetServerFactory(type, out var parentFactory))
         {
-            return parentFactory(impl);
+            return parentFactory(implementation);
         }
 
-        return new RemoteObjectImplementation(type, impl);
+        return new RemoteObjectImplementation(type, implementation);
 
         throw new InvalidOperationException($"Server factory for `{type}` not registered.");
     }
 
-    public ICaller CreateCallerWithInstance(Type type, object impl)
+    public ICaller CreateCallerWithInstance(Type type, object implementation)
     {
         var caller = CreateCallerFor(new Instance(type.Name, Guid.NewGuid()));
-        var implementation = CreateRemoteObjectImplementationFor(type, impl);
-        RegisterImpementation(caller, implementation);
+        var remoteImplementation = CreateRemoteObjectImplementationFor(type, implementation);
+        RegisterImplementation(caller, remoteImplementation);
 
         return caller;
     }
 
-    public ICaller CreateCallerWithInstance(Type type, Delegate impl)
+    public ICaller CreateCallerWithInstance(Type type, Delegate implementation)
     {
         var caller = CreateCallerFor(new Instance(type.Name, Guid.NewGuid()));
-        var implementation = new RemoteObjectImplementation(type, impl);
-        RegisterImpementation(caller, implementation);
+        var remoteImplementation = new RemoteObjectImplementation(type, implementation);
+        RegisterImplementation(caller, remoteImplementation);
 
         return caller;
     }
@@ -258,12 +273,12 @@ public class Hub
     public void RemoveCaller(Instance instance)
     {
         // TODO
-        //if (!_callers.TryRemove(instance, out _))
-        //{
-        //    throw new NetRemotingException($"Could not remove caller instance: `{instance}`");
-        //}
+        ////if (!_callers.TryRemove(instance, out _))
+        ////{
+        ////    throw new NetRemotingException($"Could not remove caller instance: `{instance}`");
+        ////}
 
-        //WriteLine($"Removed caller instance: {instance}");
+        ////WriteLine($"Removed caller instance: {instance}");
     }
 
     public void SendMessage(Message message)
@@ -289,11 +304,11 @@ public class Hub
 
     public void ReceiveRequest(Request request)
     {
-        //lock (_locker)
-        //{
-        //    _queue.Enqueue(request);
-        //    _autoResetEvent.Set();
-        //}
+        ////lock (_locker)
+        ////{
+        ////    _queue.Enqueue(request);
+        ////    _autoResetEvent.Set();
+        ////}
         var caller = GetCallerFor(request);
         WriteLine($"{caller.Instance} received a request: {request.ClientId} {request.Message}");
         caller.ReceiveRequest(request);
@@ -303,23 +318,18 @@ public class Hub
     {
         var message = request.Message;
         // TODO get instance from message, not its payload.
-        switch (message.Header.MessageType)
+        return message.Header.MessageType switch
         {
-            case MessageType.MethodCall when message.Payload is MethodCall methodCall:
-                return GetCaller(request.ClientId, new Instance(methodCall.Signature.ServiceName, methodCall.Signature.InstanceId));
-
-            case MessageType.MethodCallResult when message.Payload is MethodCallResult callResult:
-                return GetCaller(request.ClientId, new Instance(callResult.Signature.ServiceName, callResult.Signature.InstanceId));
-
-            case MessageType.Event when message.Payload is EventCall eventCall:
-                return GetCaller(request.ClientId, new Instance(eventCall.Signature.ServiceName, eventCall.Signature.InstanceId));
-
-            case MessageType.EventResponse when message.Payload is EventResponse eventResponse:
-                return GetCaller(request.ClientId, new Instance(eventResponse.Signature.ServiceName, eventResponse.Signature.InstanceId));
-
-            default:
-                throw new NotSupportedException($"{message.Header.MessageType} with {message.Payload.GetType()}");
-        }
+            MessageType.MethodCall when message.Payload is MethodCall methodCall
+                => GetCaller(request.ClientId, new Instance(methodCall.Signature.ServiceName, methodCall.Signature.InstanceId)),
+            MessageType.MethodCallResult when message.Payload is MethodCallResult callResult
+                => GetCaller(request.ClientId, new Instance(callResult.Signature.ServiceName, callResult.Signature.InstanceId)),
+            MessageType.Event when message.Payload is EventCall eventCall
+                => GetCaller(request.ClientId, new Instance(eventCall.Signature.ServiceName, eventCall.Signature.InstanceId)),
+            MessageType.EventResponse when message.Payload is EventResponse eventResponse
+                => GetCaller(request.ClientId, new Instance(eventResponse.Signature.ServiceName, eventResponse.Signature.InstanceId)),
+            _ => throw new NotSupportedException($"{message.Header.MessageType} with {message.Payload?.GetType()}"),
+        };
     }
 
     private ICaller GetCaller(Guid clientId, Instance instance)

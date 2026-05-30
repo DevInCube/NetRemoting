@@ -6,7 +6,7 @@ using System.Diagnostics;
 
 namespace NetRemoting.Test;
 
-internal class App
+internal static class App
 {
     public static void Main()
     {
@@ -27,8 +27,8 @@ internal class App
         var hub = new ServerHub(new Service());
         hub.StartServer();
 
-        //Thread.Sleep(3000);
-        //service.Ping();
+        ////Thread.Sleep(3000);
+        ////service.Ping();
     }
 
     private static void Pinger()
@@ -77,8 +77,6 @@ internal class App
 
     private static void ThreadCaseClient()
     {
-        var random = new Random();
-
         var client = new ClientHub();
         client.ConnectToServer();
 
@@ -111,7 +109,7 @@ internal class App
         }
     }
 
-    private static void Actor_Data(object sender, DataEventArgs e)
+    private static void Actor_Data(object? sender, DataEventArgs e)
     {
         Console.WriteLine($"Data: {e.Data}");
     }
@@ -131,27 +129,31 @@ internal class App
         while (true)
         {
             Thread.Sleep(100 + random.Next(10) * 500);
-            //Thread.Sleep(1000);
+            ////Thread.Sleep(1000);
             Console.WriteLine($"Converted: {actor.Convert("toConvert")}");
         }
     }
 
-    private static void Actor_ConvertEnded(object sender, string e)
+    private static void Actor_ConvertEnded(object? sender, string e)
     {
         Console.WriteLine($"Actor_ConvertEnded! {e}");
     }
 
-    private static void Actor_ConvertStarted(object sender, string e)
+    private static void Actor_ConvertStarted(object? sender, string e)
     {
         Console.WriteLine($"Actor_ConvertStarted! {e}");
 
-        var actor = (IService)sender;
+        if (sender is not IService actor)
+        {
+            return;
+        }
+
         Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} Second: {actor.Second(Guid.NewGuid(), false)}");
         Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} Second: {actor.Second(Guid.NewGuid(), true)}");
         Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} Second: {actor.Second(Guid.NewGuid(), false)}");
     }
 
-    private static void Actor_Ping(object sender, string e)
+    private static void Actor_Ping(object? sender, string e)
     {
         Console.WriteLine($"Actor_Ping! {e}");
     }

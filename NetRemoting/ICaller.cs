@@ -14,6 +14,6 @@ public interface ICaller
     void Send(Response response);
     void RaiseEvent(int threadId, EventCall eventCall);
 
-    ICallConfiguration Method([CallerMemberName] string methodName = null);
+    ICallConfiguration Method([CallerMemberName] string? methodName = null);
     void SetProxy(object proxy);
 }

@@ -24,7 +24,7 @@ public class ServerHub
         _server.ClientDisconnected += ClientDisconnected;
         _server.MessageReceived += MessageReceived;
 
-        void ClientConnected(object sender, ConnectionEventArgs args)
+        void ClientConnected(object? sender, ConnectionEventArgs args)
         {
             WriteLine($"Client connected: {args.Client}");
             _ = new Hub(mainHub, args.Client.Guid, dataBytes =>
@@ -35,14 +35,14 @@ public class ServerHub
             });
         }
 
-        void ClientDisconnected(object sender, DisconnectionEventArgs args)
+        void ClientDisconnected(object? sender, DisconnectionEventArgs args)
         {
             WriteLine($"Client disconnected: {args.Client}");
             // TODO remove from main hub
             //_clientHubs.TryRemove(args.Client.Guid, out _); // TODO dispose and notify callers?
         }
 
-        void MessageReceived(object sender, MessageReceivedEventArgs args)
+        void MessageReceived(object? sender, MessageReceivedEventArgs args)
         {
             var messageString = Encoding.UTF8.GetString(args.Data.ToArray());
             WriteLine($"Message received from `{args.Client.Guid}`: `{messageString}`");

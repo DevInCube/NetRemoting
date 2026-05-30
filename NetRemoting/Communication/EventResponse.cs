@@ -2,7 +2,7 @@ namespace NetRemoting.Communication;
 
 public class EventResponse
 {
-    public Signature Signature { get; set; }
+    public required Signature Signature { get; init; }
 
     public static EventResponse Create(Signature signature)
     {

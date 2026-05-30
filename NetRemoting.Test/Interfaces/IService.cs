@@ -2,8 +2,8 @@ namespace NetRemoting.Test.Interfaces;
 
 public interface IService
 {
-    IDependency Dependency { get; set; }
-    Func<string, bool> Delegate { get; set; }
+    IDependency? Dependency { get; set; }
+    Func<string, bool>? Delegate { get; set; }
 
     event EventHandler<string> ConvertStarted;
     event EventHandler<string> ConvertEnded;

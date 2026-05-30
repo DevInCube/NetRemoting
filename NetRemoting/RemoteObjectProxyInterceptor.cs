@@ -14,7 +14,7 @@ internal class RemoteObjectProxyInterceptor : IInterceptor
         caller.Event += Caller_Event;
     }
 
-    private void Caller_Event(object sender, CallInfo callInfo)
+    private void Caller_Event(object? sender, CallInfo callInfo)
     {
         var eventName = callInfo.Name;
 
@@ -32,14 +32,26 @@ internal class RemoteObjectProxyInterceptor : IInterceptor
         if (invocation.Method.Name.StartsWith(Language.AddPrefix))
         {
             var name = invocation.Method.Name.Substring(Language.AddPrefix.Length);
-            _eventListeners.Add(name, (Delegate)invocation.Arguments[0]);
+            var argument = (Delegate?)invocation.Arguments[0];
+            if (argument is null)
+            {
+                return;
+            }
+
+            _eventListeners.Add(name, argument);
             return;
         }
 
         if (invocation.Method.Name.StartsWith(Language.RemovePrefix))
         {
             var name = invocation.Method.Name.Substring(Language.RemovePrefix.Length);
-            _eventListeners.Remove(name, (Delegate)invocation.Arguments[0]);
+            var argument = (Delegate?)invocation.Arguments[0];
+            if (argument is null)
+            {
+                return;
+            }
+
+            _eventListeners.Remove(name, argument);
             return;
         }
 

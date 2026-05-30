@@ -19,8 +19,8 @@ internal class Caller : ICaller
 
     public Instance Instance { get; }
 
-    public event EventHandler<CallInfo> Event;
-    public event EventHandler<Request> CallReceived;
+    public event EventHandler<CallInfo>? Event;
+    public event EventHandler<Request>? CallReceived;
 
     public Caller(Hub hub, Instance instance)
     {
@@ -28,20 +28,20 @@ internal class Caller : ICaller
         Instance = instance;
     }
 
-    public void ReceiveRequest(Request rawRequest)
+    public void ReceiveRequest(Request request)
     {
-        var request = ProcessRawRequest(rawRequest);
+        var processedRequest = ProcessRawRequest(request);
 
-        _receivedMessages.Add(request.Message);
+        _receivedMessages.Add(processedRequest.Message);
 
-        var threadId = request.Message.Header.ThreadId;
+        var threadId = processedRequest.Message.Header.ThreadId;
         if (_threadWaiters.TryGetValue(threadId, out var waiterStack))
         {
-            waiterStack.Peek().ReceiveRequest(request);
+            waiterStack.Peek().ReceiveRequest(processedRequest);
             return;
         }
 
-        ProcessRequest(request);
+        ProcessRequest(processedRequest);
     }
 
     private Request ProcessRawRequest(Request rawRequest)
@@ -57,14 +57,14 @@ internal class Caller : ICaller
                 var eventArguments = eventCall.Arguments.Select(x => ProcessRawArgument(rawRequest.ClientId, x)).ToArray();
                 return new Request(rawRequest.ClientId, new Message(message.Header, new EventCall(eventCall.Signature, eventArguments)));
 
-            case MessageType.MethodCallResult when message.Payload is MethodCallResult callResult:
+            case MessageType.MethodCallResult when message.Payload is MethodCallResult:
                 return rawRequest;
 
-            case MessageType.EventResponse when message.Payload is EventResponse eventResponse:
+            case MessageType.EventResponse when message.Payload is EventResponse:
                 return rawRequest;
 
             default:
-                throw new NotSupportedException($"{message.Header.MessageType} with {message.Payload.GetType()}");
+                throw new NotSupportedException($"{message.Header.MessageType} with {message.Payload?.GetType()}");
         }
     }
 
@@ -87,7 +87,7 @@ internal class Caller : ICaller
             return argument;
         }
 
-        // Remote delegate refrence.
+        // Remote delegate reference.
         if (typeof(Delegate).IsAssignableFrom(argument.Type) &&
             argument.Value is string strVal4 &&
             SerializationHelper.TryParseInstance(strVal4, out var instance4))
@@ -183,23 +183,24 @@ internal class Caller : ICaller
         }
     }
 
-    private MethodCall CreateMethodCall(string methodName, Object[] args = null)
+    private MethodCall CreateMethodCall(string methodName, Object[]? args = null)
     {
         var arguments = args?
             .Select(ProcessArgument)
-            .ToArray();
+            .ToArray()
+            ?? [];
 
-        var call = new MethodCall(new Signature
+        var signature = new Signature
         {
             ServiceName = Instance.ServiceName,
             InstanceId = Instance.InstanceId,
             MethodName = methodName,
-        },
-            arguments);
+        };
+        var call = new MethodCall(signature, arguments);
         return call;
     }
 
-    private object ProcessArgument(object argument)
+    private object? ProcessArgument(object argument)
     {
         if (argument == null)
             return null;
@@ -231,11 +232,12 @@ internal class Caller : ICaller
 
     private Object ProcessArgument(Object argument)
     {
-        if (argument == null)
-            throw new ArgumentNullException(nameof(argument));
+        ArgumentNullException.ThrowIfNull(argument);
 
         if (argument.Value == null)
+        {
             return argument;
+        }
 
         var type = argument.Type;
 
@@ -277,8 +279,10 @@ internal class Caller : ICaller
         return argument;
     }
 
-    internal Object Call(Type type, Object[] args, [CallerMemberName] string methodName = null)
+    internal Object Call(Type type, Object[] args, [CallerMemberName] string? methodName = null)
     {
+        ArgumentNullException.ThrowIfNull(methodName);
+
         var call = CreateMethodCall(methodName, args);
         var callResult = Call(type, call, out var outArgs);
         foreach (var outArg in outArgs)
@@ -301,8 +305,10 @@ internal class Caller : ICaller
         return response;
     }
 
-    public ICallConfiguration Method([CallerMemberName] string methodName = null)
+    public ICallConfiguration Method([CallerMemberName] string? methodName = null)
     {
+        ArgumentNullException.ThrowIfNull(methodName);
+
         return new CallConfiguration(this, methodName);
     }
 
@@ -315,7 +321,13 @@ internal class Caller : ICaller
     {
         var requestMessage = new Message(MessageType.MethodCall, call);
         var responseMessage = WaitForResponse(m => _hub.SendMessage(m), requestMessage);
-        var response = (MethodCallResult)responseMessage.Payload; // TODO check that type matches
+
+        // TODO check that type matches.
+        if (responseMessage.Payload is not MethodCallResult response)
+        {
+            throw new InvalidDataException("Response message payload is not a method call result.");
+        }
+
         outArgs = response.OutArguments;
 
         if (response.ResultValue.IsVoid)
@@ -333,10 +345,7 @@ internal class Caller : ICaller
 
     private Object ProcessRawResult(Object obj)
     {
-        if (obj == null)
-        {
-            throw new ArgumentNullException(nameof(obj));
-        }
+        ArgumentNullException.ThrowIfNull(obj);
 
         var type = obj.Type;
         var value = obj.Value;
@@ -348,16 +357,21 @@ internal class Caller : ICaller
             return Object.Create(obj.Type, Convert.ToUInt32(longVal));
         }
 
+        if (value is not string stringValue)
+        {
+            return obj;
+        }
+
         if (type == typeof(Guid))
         {
-            return Object.Create(type, Guid.Parse((string)value));
+            return Object.Create(type, Guid.Parse(stringValue));
         }
 
         // TODO: date time, offset, etc.
 
         if (type.IsInterface &&
             type != typeof(IRemoteObjectImplementation) &&
-            SerializationHelper.TryParseInstance((string)value, out var instance))
+            SerializationHelper.TryParseInstance(stringValue, out var instance))
         {
             var caller = _hub.CreateCallerFor(instance);
             // Feature: actor can use direct reference to remote or implementation registered in its hub
@@ -400,7 +414,7 @@ internal class Caller : ICaller
         return waitResult;
     }
 
-    private void Waiter_Request(object sender, Request request)
+    private void Waiter_Request(object? sender, Request request)
     {
         ProcessRequest(request);
     }

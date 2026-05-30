@@ -7,22 +7,22 @@ public class Service : IService
 {
     private readonly System.Timers.Timer _timer;
 
-    public IDependency Dependency { get; set; }
+    public IDependency? Dependency { get; set; }
 
-    public Func<string, bool> Delegate { get; set; }
+    public Func<string, bool>? Delegate { get; set; }
 
-    public event EventHandler<string> ConvertStarted;
-    public event EventHandler<string> ConvertEnded;
-    public event EventHandler<string> Ping;
-    public event EventHandler<DataEventArgs> Data;
-    public event Action Action;
+    public event EventHandler<string>? ConvertStarted;
+    public event EventHandler<string>? ConvertEnded;
+    public event EventHandler<string>? Ping;
+    public event EventHandler<DataEventArgs>? Data;
+    public event Action? Action;
 
     public Service()
     {
         _timer = new System.Timers.Timer();
         _timer.Elapsed += _timer_Elapsed;
         _timer.Interval = 2000;
-        //_timer.Enabled = true;
+        ////_timer.Enabled = true;
     }
 
     public void DoPing()
@@ -31,7 +31,7 @@ public class Service : IService
         Action?.Invoke();
     }
 
-    private void _timer_Elapsed(object sender, ElapsedEventArgs e)
+    private void _timer_Elapsed(object? sender, ElapsedEventArgs e)
     {
         DoPing();
     }
@@ -40,7 +40,7 @@ public class Service : IService
     {
         Delegate?.Invoke("Convert");
         ConvertStarted?.Invoke(this, DateTimeOffset.Now.ToString());
-        Dependency.SetMe(nameof(Convert));
+        Dependency?.SetMe(nameof(Convert));
         ConvertEnded?.Invoke(this, DateTimeOffset.Now.ToString());
         var data = value + "!";
         Data?.Invoke(this, new DataEventArgs { Data = data });
@@ -49,13 +49,13 @@ public class Service : IService
 
     public Guid Second(Guid value, bool x)
     {
-        var tt = Delegate?.Invoke("Second");
+        _ = Delegate?.Invoke("Second");
         return x ? value : Guid.Empty;
     }
 
     public uint Sum(uint[] array)
     {
-        var tt = Delegate?.Invoke("Sum");
+        _ = Delegate?.Invoke("Sum");
         uint s = 0;
         foreach (var item in array)
         {
@@ -69,5 +69,4 @@ public class Service : IService
     {
         x = "This is out value.";
     }
-
 }
