@@ -2,6 +2,7 @@ using NetRemoting.Communication;
 using System.Text;
 using WatsonWebsocket;
 using System.Net.WebSockets;
+using NetRemoting.Communication.Serializers;
 
 namespace NetRemoting.Test.Client;
 
@@ -11,8 +12,9 @@ internal sealed class ClientHub : IDisposable
 
     public Hub Hub { get; }
 
-    public ClientHub()
+    public ClientHub(IMessageSerializer? serializer = null)
     {
+        serializer ??= CustomMessageSerializer.Instance;
         _client = new WatsonWsClient("localhost", 8000, ssl: false);
 
         _client.ServerConnected += ServerConnected;
@@ -24,7 +26,7 @@ internal sealed class ClientHub : IDisposable
             return _client.SendAsync(dataBytes, WebSocketMessageType.Text)
                 .GetAwaiter()
                 .GetResult();
-        });
+        }, serializer);
 
         void MessageReceived(object? sender, MessageReceivedEventArgs args)
         {
@@ -36,7 +38,7 @@ internal sealed class ClientHub : IDisposable
             var messageString = Encoding.UTF8.GetString([.. args.Data]);
             WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] Message from server: `{messageString}`.");
 
-            var message = SerializationHelper.ParseMessage(messageString);
+            var message = serializer.ParseMessage(messageString);
             Hub.ReceiveRequest(new Request(Hub.ClientId, message));
             WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] MessageReceived handler RETURNING");
         }

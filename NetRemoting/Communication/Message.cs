@@ -9,15 +9,6 @@ public class Message
 
     public object? Payload { get; set; }
 
-    public Message(MessageType messageType, object? payload = null)
-        : this(new MessageHeader
-        {
-            Id = Guid.NewGuid(),
-            MessageType = messageType,
-        }, payload)
-    {
-    }
-
     public Message(MessageHeader header, object? payload = null)
     {
         Header = header;
@@ -27,5 +18,15 @@ public class Message
     public override string ToString()
     {
         return SerializationHelper.FormatMessage(this);
+    }
+
+    public static Message Create(MessageType messageType, object? payload = null)
+    {
+        var header = new MessageHeader
+        {
+            Id = Guid.NewGuid(),
+            MessageType = messageType,
+        };
+        return new(header, payload);
     }
 }

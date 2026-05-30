@@ -1,5 +1,3 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NetRemoting.Communication;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -118,11 +116,6 @@ internal class Caller : ICaller
             return Object.Create(argument.Type, Guid.Parse(strVal3), argument.Name);
         }
 
-        if (argument.Value is JObject jObject)
-        {
-            return Object.Create(argument.Type, jObject.ToObject(argument.Type), argument.Name);
-        }
-
         return argument;
     }
 
@@ -198,36 +191,6 @@ internal class Caller : ICaller
         };
         var call = new MethodCall(signature, arguments);
         return call;
-    }
-
-    private object? ProcessArgument(object argument)
-    {
-        if (argument == null)
-            return null;
-
-        var type = argument.GetType();
-
-        if (type == typeof(Instance))
-        {
-            return argument.ToString();
-        }
-
-        if (type.IsClass && !type.IsArray && type != typeof(string))
-        {
-            var interfaces = type.GetInterfaces();
-            if (interfaces.Length > 1)
-            {
-                throw new ArgumentException("What interface to take?");
-            }
-            else if (interfaces.Length == 1)
-            {
-                var @interface = interfaces.First();
-                var caller = _hub.CreateCallerWithInstance(@interface, argument);
-                return JsonConvert.SerializeObject(Object.Create(@interface, caller.Instance.ToString()));
-            }
-        }
-
-        return JsonConvert.SerializeObject(Object.Create(type, argument));
     }
 
     private Object ProcessArgument(Object argument)
@@ -319,7 +282,7 @@ internal class Caller : ICaller
 
     private Object MakeRemoteCall(MethodCall call, out Object[] outArgs)
     {
-        var requestMessage = new Message(MessageType.MethodCall, call);
+        var requestMessage = Message.Create(MessageType.MethodCall, call);
         var responseMessage = WaitForResponse(m => _hub.SendMessage(m), requestMessage);
 
         // TODO check that type matches.

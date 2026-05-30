@@ -1,5 +1,6 @@
 using Castle.DynamicProxy;
 using NetRemoting.Communication;
+using NetRemoting.Communication.Serializers;
 using NetRemoting.Exceptions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -15,6 +16,7 @@ public class Hub
 
     private readonly Func<byte[], bool> _dataSender;
     private readonly HubRegistry _registry = new();
+    private readonly IMessageSerializer _serializer;
 
     private readonly ConcurrentDictionary<Instance, IRemoteObjectImplementation> _handlers = new();
     private readonly ConcurrentDictionary<Instance, ICaller> _callers = new();
@@ -27,13 +29,14 @@ public class Hub
 
     public HubRegistry Registry => _registry;
 
-    public Hub(Hub? parentHub, Guid clientId, Func<byte[], bool> sender)
+    public Hub(Hub? parentHub, Guid clientId, Func<byte[], bool> sender, IMessageSerializer? serializer = null)
     {
         _parentHub = parentHub;
         parentHub?._childrenHubs.Add(this);
 
         ClientId = clientId;
         _dataSender = sender;
+        _serializer = serializer ?? parentHub?._serializer ?? CustomMessageSerializer.Instance;
     }
 
     public IRemoteObjectImplementation InstantiateSingleton<T>(object impl)
@@ -283,7 +286,7 @@ public class Hub
 
     public void SendMessage(Message message)
     {
-        var messageString = SerializationHelper.FormatMessage(message);
+        var messageString = _serializer.FormatMessage(message);
         SendString(messageString);
     }
 
@@ -362,5 +365,5 @@ public class Hub
         return new[] { this }.Concat(_childrenHubs);
     }
 
-    public static Hub CreateMainHub() => new(null, Guid.Empty, x => true);
+    public static Hub CreateMainHub(IMessageSerializer? serializer = null) => new(null, Guid.Empty, x => true, serializer);
 }

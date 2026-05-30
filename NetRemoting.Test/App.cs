@@ -1,3 +1,5 @@
+using NetRemoting.Communication;
+using NetRemoting.Communication.Serializers;
 using NetRemoting.Test.Client;
 using NetRemoting.Test.Implementations;
 using NetRemoting.Test.Interfaces;
@@ -22,9 +24,11 @@ internal static class App
             );
     }
 
+    private static readonly IMessageSerializer s_serializer = CustomMessageSerializer.Instance;
+
     private static void Service()
     {
-        var hub = new ServerHub(new Service());
+        var hub = new ServerHub(new Service(), s_serializer);
         hub.StartServer();
 
         ////Thread.Sleep(3000);
@@ -42,7 +46,7 @@ internal static class App
 
     private static void ProxyClient()
     {
-        var client = new ClientHub();
+        var client = new ClientHub(s_serializer);
         client.ConnectToServer();
 
         var actor = RemoteObject.For<IService>(client.Hub.CreateCallerFor<IService>());
@@ -63,7 +67,7 @@ internal static class App
 
     private static void SimpleClient()
     {
-        var client = new ClientHub();
+        var client = new ClientHub(s_serializer);
         client.ConnectToServer();
 
         var actor = RemoteObject.For<IService>(client.Hub.CreateCallerFor<IService>());
@@ -77,7 +81,7 @@ internal static class App
 
     private static void ThreadCaseClient()
     {
-        var client = new ClientHub();
+        var client = new ClientHub(s_serializer);
         client.ConnectToServer();
 
         var actor = RemoteObject.For<IService>(client.Hub.CreateCallerFor<IService>());
@@ -118,7 +122,7 @@ internal static class App
     {
         var random = new Random();
 
-        var client = new ClientHub();
+        var client = new ClientHub(s_serializer);
         client.ConnectToServer();
 
         var actor = RemoteObject.For<IService>(client.Hub.CreateCallerFor<IService>());

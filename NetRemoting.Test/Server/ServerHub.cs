@@ -1,4 +1,5 @@
 using NetRemoting.Communication;
+using NetRemoting.Communication.Serializers;
 using NetRemoting.Test.Interfaces;
 using System.Net.WebSockets;
 using System.Text;
@@ -12,9 +13,10 @@ public class ServerHub
 
     private readonly WatsonWsServer _server;
 
-    public ServerHub(IService service)
+    public ServerHub(IService service, IMessageSerializer? serializer = null)
     {
-        var mainHub = Hub.CreateMainHub();
+        serializer ??= CustomMessageSerializer.Instance;
+        var mainHub = Hub.CreateMainHub(serializer);
 
         _ = mainHub.InstantiateSingleton<IService>(service);
 
@@ -34,7 +36,7 @@ public class ServerHub
                 return _server.SendAsync(args.Client.Guid, dataBytes, WebSocketMessageType.Text)
                     .GetAwaiter()
                     .GetResult();
-            });
+            }, serializer);
         }
 
         void ClientDisconnected(object? sender, DisconnectionEventArgs args)
@@ -49,13 +51,9 @@ public class ServerHub
             var messageString = Encoding.UTF8.GetString(args.Data.ToArray());
             WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] Message received from `{args.Client.Guid}`: `{messageString}`");
 
-            var requests = SerializationHelper.ParseMessages(messageString)
-                .Select(x => new Request(args.Client.Guid, x))
-                .ToArray();
-            foreach (var request in requests)
-            {
-                Task.Run(() => mainHub.ReceiveRequest(request));
-            }
+            var message = serializer.ParseMessage(messageString);
+            var request = new Request(args.Client.Guid, message);
+            Task.Run(() => mainHub.ReceiveRequest(request));
 
             WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] MessageReceived handler RETURNING");
         }

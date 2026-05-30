@@ -1,5 +1,5 @@
 using NetRemoting.Exceptions;
-using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
@@ -76,7 +76,7 @@ public static class SerializationHelper
 
         try
         {
-            var argument = JsonConvert.DeserializeObject<Object>(arg);
+            var argument = ParseValue(arg);
             return argument;
         }
         catch (Exception)
@@ -120,14 +120,16 @@ public static class SerializationHelper
             return argument.Value.ToString() ?? throw new InvalidDataException("Object value string representation is null.");
         }
 
-        return JsonConvert.SerializeObject(argument);
+        return FormatValue(argument);
     }
 
     public static MethodCall ParseMethodCall(string callString)
     {
         var callParts = callString.Split('|');
         if (callParts.Length != 2)
+        {
             throw new FormatException($"Invalid method call format: `{callString}`");
+        }
 
         var signature = ParseSignature(callParts[0]);
         var arguments = ParseArguments(callParts[1]);
@@ -138,7 +140,9 @@ public static class SerializationHelper
     {
         var callParts = callString.Split('|');
         if (callParts.Length != 2)
+        {
             throw new FormatException($"Invalid event call format: `{callString}`");
+        }
 
         var signature = ParseSignature(callParts[0]);
         var arguments = ParseArguments(callParts[1]);
@@ -274,7 +278,7 @@ public static class SerializationHelper
             return $"{nameof(ResultValueType.Exception)}({resultValue.Exception})";
         }
 
-        return $"{nameof(ResultValueType.Result)}({JsonConvert.SerializeObject(resultValue.Result)})";
+        return $"{nameof(ResultValueType.Result)}({FormatValue(resultValue.Result)})";
     }
 
     private static ResultValue ParseResultValue(string str)
@@ -285,7 +289,7 @@ public static class SerializationHelper
         {
             nameof(ResultValueType.Void) => ResultValue.Void,
             nameof(ResultValueType.Exception) => ResultValue.CreateException(new NetRemotingException(part1)),
-            nameof(ResultValueType.Result) => ResultValue.CreateResult(JsonConvert.DeserializeObject<Object>(part1) ?? throw new InvalidDataException("JSON value is null.")),
+            nameof(ResultValueType.Result) => ResultValue.CreateResult(ParseValue(part1)),
             _ => throw new NotSupportedException(parts[0]),
         };
     }
@@ -328,24 +332,14 @@ public static class SerializationHelper
         };
     }
 
-    public static IEnumerable<Message> ParseMessages(string text)
-    {
-        var messages = text.Split(';')  // messages separator
-            .Select(x => x.Trim())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Where(x => !x.StartsWith("//"))  // comments
-            .Select(ParseMessage);
-        return messages;
-    }
-
     private static object ParsePayload(MessageType messageType, string payloadString)
     {
         return messageType switch
         {
-            MessageType.MethodCall => (object)ParseMethodCall(payloadString),
-            MessageType.MethodCallResult => (object)ParseCallResult(payloadString),
-            MessageType.Event => (object)ParseEventCall(payloadString),
-            MessageType.EventResponse => (object)ParseEventResponse(payloadString),
+            MessageType.MethodCall => ParseMethodCall(payloadString),
+            MessageType.MethodCallResult => ParseCallResult(payloadString),
+            MessageType.Event => ParseEventCall(payloadString),
+            MessageType.EventResponse => ParseEventResponse(payloadString),
             _ => throw new NotSupportedException(messageType.ToString()),
         };
 
@@ -368,7 +362,25 @@ public static class SerializationHelper
             MessageType.EventResponse when payload is EventResponse eventResponse => FormatEventResponse(eventResponse),
             _ => throw new NotSupportedException(messageType.ToString()),
         };
+    }
 
+    private static string FormatValue(Object value)
+    {
+        var stringValue = Newtonsoft.Json.JsonConvert.SerializeObject(value);
+        return stringValue;
+    }
+
+    private static Object ParseValue(string stringValue)
+    {
+        var value = Newtonsoft.Json.JsonConvert.DeserializeObject<Object>(stringValue)
+            ?? throw new InvalidDataException("JSON value is null.");
+        if (value.Value is JToken jToken)
+        {
+            var typed = jToken.ToObject(value.Type);
+            return Object.Create(value.Type, typed, value.Name);
+        }
+
+        return value;
     }
 
     private enum ResultValueType
