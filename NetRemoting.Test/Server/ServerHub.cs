@@ -52,7 +52,7 @@ public class ServerHub
                 .ToArray();
             foreach (var request in requests)
             {
-                mainHub.ReceiveRequest(request);
+                Task.Run(() => mainHub.ReceiveRequest(request));
             }
         }
     }
