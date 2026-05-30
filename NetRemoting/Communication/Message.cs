@@ -17,7 +17,7 @@ public class Message
 
     public override string ToString()
     {
-        return SerializationHelper.FormatMessage(this);
+        return DisplayFormatter.FormatMessage(this);
     }
 
     public static Message Create(MessageType messageType, object? payload = null)

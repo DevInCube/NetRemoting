@@ -32,6 +32,6 @@ public class Instance
 
     public override string ToString()
     {
-        return SerializationHelper.FormatInstance(this);
+        return DisplayFormatter.FormatInstance(this);
     }
 }

@@ -98,13 +98,6 @@ public static class SerializationHelper
         return argumentsPart;
     }
 
-    public static string[] ProcessArguments(Object[] args)
-    {
-        return args?
-            .Select(FormatArgument)
-            .ToArray() ?? [];
-    }
-
     public static string FormatArgument(Object argument)
     {
         ArgumentNullException.ThrowIfNull(argument);

@@ -17,6 +17,6 @@ public class MethodCall
 
     public override string ToString()
     {
-        return SerializationHelper.FormatMethodCall(this);
+        return DisplayFormatter.FormatMethodCall(this);
     }
 }

@@ -13,6 +13,6 @@ public class MethodCallResult
 
     public override string ToString()
     {
-        return SerializationHelper.FormatMethodCallResult(this);
+        return DisplayFormatter.FormatMethodCallResult(this);
     }
 }

@@ -18,6 +18,6 @@ public class MessageHeader
 
     public override string ToString()
     {
-        return SerializationHelper.FormatMessageHeader(this);
+        return DisplayFormatter.FormatMessageHeader(this);
     }
 }
