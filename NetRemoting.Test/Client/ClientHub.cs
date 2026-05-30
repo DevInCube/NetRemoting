@@ -34,10 +34,11 @@ internal sealed class ClientHub : IDisposable
             }
 
             var messageString = Encoding.UTF8.GetString([.. args.Data]);
-            WriteLine($"Message from server: `{messageString}`.");
+            WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] Message from server: `{messageString}`.");
 
             var message = SerializationHelper.ParseMessage(messageString);
             Hub.ReceiveRequest(new Request(Hub.ClientId, message));
+            WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] MessageReceived handler RETURNING");
         }
 
         void ServerConnected(object? sender, EventArgs args)
@@ -77,6 +78,6 @@ internal sealed class ClientHub : IDisposable
 
     private static void WriteLine(string line)
     {
-        Console.WriteLine($"{nameof(ClientHub)} >>> {line}");
+        ////Console.WriteLine($"{nameof(ClientHub)} >>> {line}");
     }
 }

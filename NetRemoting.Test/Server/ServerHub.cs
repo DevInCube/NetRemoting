@@ -18,8 +18,10 @@ public class ServerHub
 
         _ = mainHub.InstantiateSingleton<IService>(service);
 
-        _server = new WatsonWsServer("localhost", port, ssl: false);
-        _server.Logger = (data) => WriteLine(data);
+        _server = new WatsonWsServer("localhost", port, ssl: false)
+        {
+            Logger = (data) => WriteLine(data)
+        };
         _server.ClientConnected += ClientConnected;
         _server.ClientDisconnected += ClientDisconnected;
         _server.MessageReceived += MessageReceived;
@@ -45,7 +47,7 @@ public class ServerHub
         void MessageReceived(object? sender, MessageReceivedEventArgs args)
         {
             var messageString = Encoding.UTF8.GetString(args.Data.ToArray());
-            WriteLine($"Message received from `{args.Client.Guid}`: `{messageString}`");
+            WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] Message received from `{args.Client.Guid}`: `{messageString}`");
 
             var requests = SerializationHelper.ParseMessages(messageString)
                 .Select(x => new Request(args.Client.Guid, x))
@@ -54,6 +56,8 @@ public class ServerHub
             {
                 Task.Run(() => mainHub.ReceiveRequest(request));
             }
+
+            WriteLine($"[Thread {Thread.CurrentThread.ManagedThreadId}] MessageReceived handler RETURNING");
         }
     }
 
@@ -63,8 +67,8 @@ public class ServerHub
         WriteLine($"Started at {port}");
     }
 
-    private void WriteLine(string line)
+    private static void WriteLine(string line)
     {
-        Console.WriteLine($"{nameof(ServerHub)} >>> {line}");
+        ////Console.WriteLine($"{nameof(ServerHub)} >>> {line}");
     }
 }
