@@ -69,20 +69,14 @@ internal class Caller : ICaller
     private Object ProcessRawArgument(Guid clientId, Object argument)
     {
         // Special values.
-        if (argument.Type == null &&
-            argument.Value is string strVal)
+        if (Sender.IsSender(argument))
         {
-            if (strVal == "<sender>")
+            if (!_hub.TryGetRemote(Instance, out var remote))
             {
-                if (!_hub.TryGetRemote(Instance, out var remote))
-                {
-                    throw new InvalidOperationException($"Sender remote was not found.");
-                }
-
-                return Object.Create(typeof(object), remote);  // todo use real passed sender type?
+                throw new InvalidOperationException($"Sender remote was not found.");
             }
 
-            return argument;
+            return Sender.CreateVal(remote);
         }
 
         // Remote delegate reference.

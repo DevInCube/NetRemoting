@@ -7,9 +7,6 @@ namespace NetRemoting.Communication;
 
 public static class SerializationHelper
 {
-    private const string Null = "<null>";
-    private const string Sender = "<sender>";
-
     private static readonly string s_pattern = @"\),\(";
     private static readonly Regex s_argumentsSplitRegex = new(s_pattern);
 
@@ -26,7 +23,10 @@ public static class SerializationHelper
         var serviceNameParts = instanceString.Split('@');
         var serviceName = serviceNameParts[0];
         if (string.IsNullOrWhiteSpace(serviceName))
+        {
             throw new FormatException("Service name can not be empty.");
+        }
+
 
         var instanceId = serviceNameParts.Length > 1
             ? Guid.Parse(serviceNameParts[1])
@@ -36,42 +36,46 @@ public static class SerializationHelper
 
     public static bool TryParseInstance(string arg, [NotNullWhen(true)] out Instance? instance)
     {
-        if (arg.Contains('@') && Guid.TryParse(arg.Split('@')[1], out _))
+        if (!arg.Contains('@') || !Guid.TryParse(arg.Split('@')[1], out _))
         {
-            instance = ParseInstance(arg);
-            return true;
+            instance = null;
+            return false;
         }
 
-        instance = null;
-        return false;
+        instance = ParseInstance(arg);
+        return true;
     }
 
     private static Object[] ParseArguments(string part)
     {
-        var arguments = s_argumentsSplitRegex.Split(part.Trim().TrimStart('(').TrimEnd(')'))
-            .Where(x => !string.IsNullOrEmpty(x))  // TODO passing empty strings as arguments
+        var innerPart = part.Trim().TrimStart('(').TrimEnd(')');
+        if (string.IsNullOrEmpty(innerPart))
+        {
+            return [];
+        }
+
+        var arguments = s_argumentsSplitRegex.Split(innerPart)
             .Select(ParseArgument)
             .OfType<Object>()
             .ToArray();
         return arguments;
     }
 
-    private static Object? ParseArgument(string arg)
+    private static Object ParseArgument(string arg)
     {
-        // TODO empty strings
         if (string.IsNullOrEmpty(arg))
         {
             throw new ArgumentException("Argument is null or empty.", nameof(arg));
         }
 
-        if (arg == Null)
+        if (arg == Null.Value)
         {
-            return null;
+            return Null.Instance;
         }
 
-        if (arg == Sender)
+        if (arg == Sender.Value)
         {
-            return Object.Create(null, arg);
+            return Sender.CreateVal(arg);
         }
 
         try
@@ -91,10 +95,8 @@ public static class SerializationHelper
     {
         // TODO make sure that there are no commas in arguments
         // Serialize complex arguments in JSON
-        var arguments = args?.Select(FormatArgument).ToArray();
-        var argumentsPart = arguments == null
-            ? string.Empty
-            : string.Join("),(", arguments);
+        var arguments = args.Select(FormatArgument).ToArray();
+        var argumentsPart = string.Join("),(", arguments);
         return argumentsPart;
     }
 
@@ -103,14 +105,14 @@ public static class SerializationHelper
         ArgumentNullException.ThrowIfNull(argument);
 
         // Special values.
-        if (argument.Type is null)
+        if (Null.IsNull(argument))
         {
-            if (argument.Value is null)
-            {
-                return Null;
-            }
+            return Null.Value;
+        }
 
-            return argument.Value.ToString() ?? throw new InvalidDataException("Object value string representation is null.");
+        if (Sender.IsSender(argument))
+        {
+            return Sender.Value;
         }
 
         return FormatValue(argument);
@@ -153,7 +155,7 @@ public static class SerializationHelper
         return new Signature
         {
             ServiceName = serviceName,
-            InstanceId = instanceId == null ? (Guid?)null : Guid.Parse(instanceId),
+            InstanceId = instanceId != null ? Guid.Parse(instanceId) : null,
             MethodName = methodName,
         };
     }

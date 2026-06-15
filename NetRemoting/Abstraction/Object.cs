@@ -23,7 +23,7 @@ public class Object
 
     public override string ToString()
     {
-        const string @null = "<null>";
+        const string @null = "(null)";
         return $"{Type?.Name ?? @null} {Name ?? @null} {Value ?? @null}";
     }
 

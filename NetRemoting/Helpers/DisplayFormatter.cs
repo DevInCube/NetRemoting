@@ -5,7 +5,6 @@ namespace NetRemoting.Communication;
 internal static class DisplayFormatter
 {
     private const string Void = "void";
-    private const string Null = "<null>";
 
     public static string FormatInstance(Instance instance)
     {
@@ -52,11 +51,6 @@ internal static class DisplayFormatter
 
     private static string FormatObject(RemotingObject? obj)
     {
-        if (obj is null)
-        {
-            return Null;
-        }
-
-        return obj.Value?.ToString() ?? Null;
+        return obj?.Value?.ToString() ?? Null.Value;
     }
 }

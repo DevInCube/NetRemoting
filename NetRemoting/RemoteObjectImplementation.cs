@@ -1,3 +1,4 @@
+using NetRemoting.Communication;
 using NetRemoting.CSharp;
 using NetRemoting.Exceptions;
 using System.Reflection;
@@ -8,7 +9,7 @@ public class RemoteObjectImplementation : IRemoteObjectImplementation
 {
     private readonly Type _type;
     private readonly object _target;
-    private readonly IDictionary<int, int> _threadMapping = new Dictionary<int, int>();
+    private readonly Dictionary<int, int> _threadMapping = [];
 
     public object Target => _target;
 
@@ -30,7 +31,9 @@ public class RemoteObjectImplementation : IRemoteObjectImplementation
             var @delegate = DelegateHelper.Create(@event, args =>
             {
                 var arguments = args
-                    .Select((x, i) => (x == _target) ? Object.Create(null, "<sender>", parameters[i].Name) : Object.Create(parameters[i].ParameterType, x, parameters[i].Name))
+                    .Select((x, i) => x == _target
+                        ? Sender.CreateRef(parameters[i].Name)
+                        : Object.Create(parameters[i].ParameterType, x, parameters[i].Name))
                     .ToArray();
                 var managedThreadId = Thread.CurrentThread.ManagedThreadId;
                 var threadId = _threadMapping.TryGetValue(managedThreadId, out var val)
@@ -53,12 +56,8 @@ public class RemoteObjectImplementation : IRemoteObjectImplementation
 
         if (callInfo.MethodType == MethodType.Default)
         {
-            var method = type.GetMethod(callInfo.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-            if (method == null)
-            {
-                throw new NotSupportedException(callInfo.Name);
-            }
-
+            var method = type.GetMethod(callInfo.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy)
+                ?? throw new NotSupportedException(callInfo.Name);
             var result = method.Invoke(_target, realArguments);
             for (var i = 0; i < realArguments.Length; i++)
             {
@@ -69,24 +68,19 @@ public class RemoteObjectImplementation : IRemoteObjectImplementation
                 ? Return.Void
                 : result;
         }
-        else if (callInfo.MethodType == MethodType.PropertyGet ||
-                 callInfo.MethodType == MethodType.PropertySet)
+        
+        if (callInfo.MethodType == MethodType.PropertyGet ||
+            callInfo.MethodType == MethodType.PropertySet)
         {
-            var property = type.GetProperty(callInfo.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-            if (property == null)
-            {
-                throw new NotSupportedException(callInfo.Name);
-            }
-
+            var property = type.GetProperty(callInfo.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy)
+                ?? throw new NotSupportedException(callInfo.Name);
             if (callInfo.MethodType == MethodType.PropertySet)
             {
-                property.SetValue(_target, realArguments.First());
+                property.SetValue(_target, realArguments[0]);
                 return Return.Void;
             }
-            else
-            {
-                return property.GetValue(_target);
-            }
+
+            return property.GetValue(_target);
         }
 
         throw new NotSupportedException($"RemoteObjectImplementation Call {callInfo.MethodType} {callInfo.Name}");
